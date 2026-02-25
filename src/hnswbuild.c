@@ -658,9 +658,17 @@ static void *
 HnswSharedMemoryAlloc(Size size, void *state)
 {
 	HnswBuildState *buildstate = (HnswBuildState *) state;
-	void	   *chunk = buildstate->hnswarea + buildstate->graph->memoryUsed;
+	Size		alignedSize = MAXALIGN(size);
+	void	   *chunk;
 
-	buildstate->graph->memoryUsed += MAXALIGN(size);
+	if (alignedSize > 1024 * 1024)
+		elog(ERROR, "hnsw allocation too large");
+
+	if (buildstate->graph->memoryUsed + alignedSize > buildstate->graph->memoryTotal)
+		elog(ERROR, "hnsw allocator out of memory");
+
+	chunk = buildstate->hnswarea + buildstate->graph->memoryUsed;
+	buildstate->graph->memoryUsed += alignedSize;
 	return chunk;
 }
 
